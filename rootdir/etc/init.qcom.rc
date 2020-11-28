@@ -69,7 +69,7 @@ on late-init
     # Start services for bootanim
     start surfaceflinger
     start bootanim
-    start vendor.hwcomposer-2-3
+    start vendor.hwcomposer-2-4
     start vendor.configstore-hal
     start vendor.qti.hardware.display.allocator
 
@@ -496,6 +496,9 @@ on property:sys.boot_completed=1
     chown media audio /sys/kernel/wdsp0/boot
     chown media audio /sys/kernel/wcd_cpe0/fw_name
 
+    #Reinit lmkd to reconfigure lmkd properties
+    setprop lmkd.reinit 1
+
 on property:persist.vendor.radio.atfwd.start=false
     stop vendor.atfwd
 
@@ -581,22 +584,6 @@ on property:ro.data.large_tcp_window_size=true
 on property:sys.sysctl.tcp_adv_win_scale=*
     write /proc/sys/net/ipv4/tcp_adv_win_scale ${sys.sysctl.tcp_adv_win_scale}
 
-service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
-    -O/data/vendor/wifi/wpa/sockets -puse_p2p_group_interface=1 \
-    -g@android:vendor_wpa_wlan0
-#   we will start as root and wpa_supplicant will switch to user wifi
-#   after setting up the capabilities required for WEXT
-#   user wifi
-#   group wifi inet keystore
-    interface android.hardware.wifi.supplicant@1.0::ISupplicant default
-    interface android.hardware.wifi.supplicant@1.1::ISupplicant default
-    interface android.hardware.wifi.supplicant@1.2::ISupplicant default
-    class main
-    socket vendor_wpa_wlan0 dgram 660 wifi wifi
-    disabled
-    oneshot
-    writepid /dev/cpuset/system-background/tasks
-
 service vendor.wigig_supplicant /vendor/bin/hw/wpa_supplicant \
     -iwigig0 -Dnl80211 -c/data/vendor/wifi/wigig_supplicant.conf \
     -m/data/vendor/wifi/wigig_p2p_supplicant.conf \
@@ -643,7 +630,7 @@ service fstman_wlan0 /vendor/bin/fstman -B -ddd -c /data/vendor/wifi/fstman.ini 
     writepid /dev/cpuset/system-background/tasks
 
 service wigignpt /vendor/bin/wigignpt
-    interface vendor.qti.hardware.wigig.netperftuner@1.0::INetPerfTuner default
+#    interface vendor.qti.hardware.wigig.netperftuner@1.0::INetPerfTuner default
     class hal
     socket wigig/wigignpt stream 660 system wifi
     user system
@@ -964,7 +951,6 @@ service esepmdaemon /system/vendor/bin/esepmdaemon
 
 on charger
     setprop persist.sys.usb.config mass_storage
-    load_system_props
     start qcom-post-boot
 
 #add poweroffhandler
@@ -1028,7 +1014,7 @@ on property:vendor.opengles.version=*
 on property:vendor.gpu.available_frequencies=*
     setprop ro.vendor.gpu.available_frequencies ${vendor.gpu.available_frequencies}
 
-service vendor.audio-hal-2-0 /vendor/bin/hw/android.hardware.audio@2.0-service
+service vendor.audio-hal /vendor/bin/hw/android.hardware.audio.service
     override
     class hal
     user audioserver
@@ -1036,17 +1022,11 @@ service vendor.audio-hal-2-0 /vendor/bin/hw/android.hardware.audio@2.0-service
     group audio camera drmrpc inet media mediadrm net_bt net_bt_admin net_bw_acct oem_2901 wakelock
     capabilities BLOCK_SUSPEND SYS_NICE
     ioprio rt 4
-    writepid /dev/cpuset/foreground/tasks /dev/stune/foreground/tasks
-    # audioflinger restarts itself when it loses connection with the hal
-    # and its .rc file has an "onrestart restart audio-hal" rule, thus
-    # an additional auto-restart from the init process isn't needed.
+    task_profiles ProcessCapacityHigh HighPerformance
     socket audio_hw_socket seqpacket 0666 system system
-    oneshot
-    interface android.hardware.audio@5.0::IDevicesFactory default
-    interface android.hardware.audio@4.0::IDevicesFactory default
-    interface android.hardware.audio@2.0::IDevicesFactory default
+    onrestart restart audioserver
 
-service vendor.hwcomposer-2-3 /vendor/bin/hw/android.hardware.graphics.composer@2.3-service
+service vendor.hwcomposer-2-4 /vendor/bin/hw/android.hardware.graphics.composer@2.4-service
     override
     class hal animation
     user system
@@ -1055,3 +1035,7 @@ service vendor.hwcomposer-2-3 /vendor/bin/hw/android.hardware.graphics.composer@
     onrestart restart surfaceflinger
     socket pps stream 0660 system system
     writepid /dev/cpuset/system-background/tasks
+
+on property:persist.sys.device_provisioned=1
+    setprop dalvik.vm.dex2oat-cpu-set 0,1,2,3,6,7
+    setprop dalvik.vm.dex2oat-threads 6
