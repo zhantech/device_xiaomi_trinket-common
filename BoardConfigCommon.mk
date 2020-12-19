@@ -160,6 +160,9 @@ TARGET_RECOVERY_PIXEL_FORMAT := "RGBX_8888"
 ENABLE_VENDOR_RIL_SERVICE := true
 TARGET_USES_PRE_UPLINK_FEATURES_NETMGRD := true
 
+# Security patch level
+VENDOR_SECURITY_PATCH := 2020-12-05
+
 # Sepolicy
 include device/qcom/sepolicy/sepolicy.mk
 BOARD_PLAT_PRIVATE_SEPOLICY_DIR += $(COMMON_PATH)/sepolicy/private
