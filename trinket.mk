@@ -413,6 +413,5 @@ PRODUCT_BOOT_JARS += \
 
 # Bloatware
 PRODUCT_PACKAGES += \
-    GalleryGo \
     Retro \
     RemovePackages
